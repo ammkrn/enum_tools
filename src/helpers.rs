@@ -52,9 +52,10 @@ pub fn mk_common_field_get_mut(enum_ident : &Ident, variants : &Punctuated<Varia
 
  
 
-pub fn mk_match_arm_one(variant_ident : &Ident, field_name : &Ident) -> syn::Arm {
+pub fn mk_match_arm_one(enum_ident : &Ident, variant_ident : &Ident, field_name : &Ident) -> syn::Arm {
+    let enum_match_path : syn::Path = parse_quote!(#enum_ident::#variant_ident);
     let arm : syn::Arm = parse_quote! {
-        #variant_ident { #field_name, .. } => #field_name
+        #enum_match_path { #field_name, .. } => #field_name
     };
     arm
 }
@@ -62,7 +63,7 @@ pub fn field_to_getter(enum_ident : &Ident, variant_idents : &Vec<Ident>, field 
     let field_name = field.ident.as_ref().expect("No field ident ; field_to_getter").clone();
     let getter_name = format_ident!("get_{}", &field_name);
     let return_type = &field.ty;
-    let match_arms = variant_idents.iter().map(|v_id| mk_match_arm_one(v_id, &field_name))
+    let match_arms = variant_idents.iter().map(|v_id| mk_match_arm_one(enum_ident, v_id, &field_name))
                     .collect::<Punctuated<syn::Arm, syn::token::Comma>>();
 
     let impl_fn : syn::ItemImpl = parse_quote! {
@@ -81,7 +82,7 @@ pub fn field_to_mut_getter(enum_ident : &Ident, variant_idents : &Vec<Ident>, fi
     let field_name = field.ident.as_ref().expect("No field ident ; field_to_getter").clone();
     let getter_name = format_ident!("get_mut_{}", &field_name);
     let return_type = &field.ty;
-    let match_arms = variant_idents.iter().map(|v_id| mk_match_arm_one(v_id, &field_name))
+    let match_arms = variant_idents.iter().map(|v_id| mk_match_arm_one(enum_ident, v_id, &field_name))
                     .collect::<Punctuated<syn::Arm, syn::token::Comma>>();
 
     let impl_fn : syn::ItemImpl = parse_quote! {
@@ -106,7 +107,7 @@ pub struct FieldsSummary {
 
 
 // From derive_input, get list of variants
-pub fn map_variants_for_unique_iter(vs : Punctuated<Variant, syn::token::Comma>) -> syn::ItemImpl {
+pub fn map_variants_for_unique_iter(enum_ident : &Ident, vs : Punctuated<Variant, syn::token::Comma>) -> syn::ItemImpl {
     let fields_inter = fields_inter(&vs);
     let all_uniques = vs.iter().map(|v| {
         this_variant_unique(v, &fields_inter)
@@ -116,11 +117,11 @@ pub fn map_variants_for_unique_iter(vs : Punctuated<Variant, syn::token::Comma>)
     let mut all_arms = Punctuated::<syn::Arm, syn::token::Comma>::new();
     for (v, uniques) in vs.iter().zip(all_uniques.iter()) {
 
-        all_arms.push(variant_to_arm(v, uniques));
+        all_arms.push(variant_to_arm(enum_ident, v, uniques));
     }
 
     let impl_ : syn::ItemImpl = parse_quote! {
-        impl Step {
+        impl #enum_ident {
             pub fn iter_uniques(&self) -> Vec<ItemIdx> {
                 match self {
                    #all_arms
@@ -132,14 +133,15 @@ pub fn map_variants_for_unique_iter(vs : Punctuated<Variant, syn::token::Comma>)
 
 }
 
-pub fn variant_to_arm(v : &Variant, uniques : &Vec<Field>) -> syn::Arm {
+pub fn variant_to_arm(enum_ident : &Ident, v : &Variant, uniques : &Vec<Field>) -> syn::Arm {
     let variant_ident = &v.ident;
+    let match_arm_path : syn::Path = parse_quote!(#enum_ident::variant_ident);
 
     // If a variant has no unique fields, needs to be handled specially
     // or the macro will panic.
     if uniques.is_empty() {
         let arm : syn::Arm = parse_quote! {
-            #variant_ident { .. } => { Vec::new() }
+            #match_arm_path { .. } => { Vec::new() }
         };
         return arm
     }
@@ -157,7 +159,7 @@ pub fn variant_to_arm(v : &Variant, uniques : &Vec<Field>) -> syn::Arm {
         stmt_
     }).collect();
     let arm : syn::Arm = parse_quote! {
-        #variant_ident { #field_idents, .. } => {
+        #match_arm_path { #field_idents, .. } => {
             let mut buf = Vec::new();
             #push_stmts
             buf

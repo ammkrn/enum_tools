@@ -55,7 +55,7 @@ pub fn unique_iter(input : TokenStream) -> TokenStream {
         _ => panic!("Not an enum!")
     };
 
-    let item = crate::helpers::map_variants_for_unique_iter(all_enum_variants);
+    let item = crate::helpers::map_variants_for_unique_iter(&enum_ident, all_enum_variants);
 
     TokenStream::from(quote! {
         #item
