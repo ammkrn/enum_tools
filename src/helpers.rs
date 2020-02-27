@@ -135,7 +135,7 @@ pub fn map_variants_for_unique_iter(enum_ident : &Ident, vs : Punctuated<Variant
 
 pub fn variant_to_arm(enum_ident : &Ident, v : &Variant, uniques : &Vec<Field>) -> syn::Arm {
     let variant_ident = &v.ident;
-    let match_arm_path : syn::Path = parse_quote!(#enum_ident::variant_ident);
+    let match_arm_path : syn::Path = parse_quote!(#enum_ident::#variant_ident);
 
     // If a variant has no unique fields, needs to be handled specially
     // or the macro will panic.
